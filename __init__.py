@@ -59,26 +59,30 @@ def importIDC(file, binaryView):
 	stringDefList = {}
 
 	notifyUserNonFunctionComments = False
-
+	hex_prefix = "0x"
 	# We'll get all the info we need all in two sweeps. The first pass will get the definitions,
 	# the second will get the name assignments. This is because sometimes name assignments are put
 	# in the IDC before the definitions are. Comments are also left to the second path, that way all
 	# functions are created first.
 
 	# Perform first sweep for definitions
-	with open(file, 'rU') as f:
+	with open(file, 'r', encoding='utf-8') as f:
 		for line in f:
+			if "0X" in line:
+				hex_prefix = "0X"
+			else:
+				hex_prefix = "0x"
 			# Parse out definitions
 			if "add_func" in line:
-				startAddr = getBetween(line, "(0X", ",")
+				startAddr = getBetween(line, f"({hex_prefix}", ",")
 				
 				if startAddr == "":
 					startAddr = "0"
 					endAddr = getBetween(line, "0", ")")
 				else:
-					endAddr = getBetween(line, "0X", ")")
+					endAddr = getBetween(line, f"{hex_prefix}", ")")
 					
-				endAddr 	= getBetween(line, "0X", ")")
+				endAddr 	= getBetween(line, f"{hex_prefix}", ")")
 				virtualAddr = int("0x" + startAddr, 16)
 
 				# If the function hasn't already been defined by binja, we'll define it
@@ -91,28 +95,32 @@ def importIDC(file, binaryView):
 				endAddr = endAddr.split(",")[1]
 				endAddr = endAddr.replace("\t", "")
 				endAddr = endAddr.replace(" ", "")
-				endAddr = endAddr.replace("0X", "")
+				endAddr = endAddr.replace(hex_prefix, "")
 
 				functionList[startAddr] = SymbolDef(startAddr, endAddr)
 
 			elif "create_strlit" in line:
-				startAddr 	= getBetween(line, "(0X", ",")
-				endAddr 	= getBetween(line, "0X", ")")
+				startAddr 	= getBetween(line, f"({hex_prefix}", ",")
+				endAddr 	= getBetween(line, hex_prefix, ")")
 
 				# Sometimes IDA tab aligns the end address for some reason, so we'll split by the comma and strip the tab + "0X" prefix
 				endAddr = endAddr.split(",")[1]
 				endAddr = endAddr.replace("\t", "")
 				endAddr = endAddr.replace(" ", "")
-				endAddr = endAddr.replace("0X", "")
+				endAddr = endAddr.replace(hex_prefix, "")
 
 				stringDefList[startAddr] = SymbolDef(startAddr, endAddr)
 
 	# Perform second sweep for names
-	with open(file, 'rU') as f:
+	with open(file, 'r', encoding='utf-8') as f:
 		for line in f:
+			if "0X" in line:
+				hex_prefix = "0X"
+			else:
+				hex_prefix = "0x"
 			# Parse out name assignments
 			if "set_name" in line:
-				startAddr 	= getBetween(line, "(0X", ",")
+				startAddr 	= getBetween(line, f"({hex_prefix}", ",")
 				nameStr 	= getBetween(line, "\"", "\"")
 
 				# Attempt to set the name on each list. We'll try strings first because they'll be the likeliest candidate.
@@ -122,7 +130,7 @@ def importIDC(file, binaryView):
 					functionList[startAddr].setName(nameStr)
 
 			elif "set_cmt" in line:
-				startAddr 	= getBetween(line, "(0X", ",")
+				startAddr 	= getBetween(line, f"({hex_prefix}", ",")
 				commentTxt  = getBetween(line, "\"", "\"")
 
 				if startAddr != "" and startAddr != None:
